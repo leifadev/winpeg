@@ -33,6 +33,7 @@ class Window:
         self.tempDir = f"C:\\Users\\{getpass.getuser()}\\AppData\\Local\\Temp\\" # ADD TEMP DIR FROM WINDOWS
         self.icon = ""
         self.version = "v0.1"
+        self.file_name = "ffmpeg.zip" # don't change this, just for extra purposes
 
         ssl._create_default_https_context = ssl._create_unverified_context
 
@@ -44,19 +45,24 @@ class Window:
         height=350
         screenwidth = parent.winfo_screenwidth()
         screenheight = parent.winfo_screenheight()
-
         alignstr = '%dx%d+%d+%d' % (width, height, (screenwidth - width) / 2, (screenheight - height) / 2)
         parent.geometry(alignstr)
-        parent.resizable(width=True, height=True)
+        parent.resizable(width=False, height=False)
 
 
         # Download logo icon!
-        print("Attemping logo downloading...")
+        logging.debug("Attemping logo downloading...")
         url = "https://raw.githubusercontent.com/leifadev/scout/main/images/scout_logo_windows_installer.png"
 
         # Fetch latest ffmpeg build API https://ffbinaries.com/api
         ffmpeg_url = "https://ffbinaries.com/api/v1/version/latest"
-        data = requests.get(ffmpeg_url).json()
+
+        try:
+            data = requests.get(ffmpeg_url).json()
+        except ConnectionError as e:
+            self.logfield.insert(END, f"WARNING: Icon could not be found or applied to the app!")
+            logging.info(e)
+
         self.release_url = data["bin"]["windows-64"]["ffmpeg"]
 
         self.logfield = tk.Text(parent)
@@ -66,20 +72,20 @@ class Window:
             wget.download(url, self.tempDir + "scout_windows_installer.png")
             self.logfield.insert(END, "INFO: Downloaded the app icon!")
         else:
-            print("DEBUG: Icon detected!")
+            logging.debug("DEBUG: Icon detected!")
 
         try:
             self.icon = PhotoImage(file=self.tempDir + "scout_windows_installer.png")
             parent.tk.call('wm', 'iconphoto', parent._w, self.icon)
         except Exception as e:
-            print(f"DEBUG: WARNING: Tkinter could not apply these app with PhotoImage class!\nIt's found directory should be {self.tempDir}, a temporary directory in Windows 10")
+            logging.debug(f"DEBUG: WARNING: Tkinter could not apply these app with PhotoImage class!\nIt's found directory should be {self.tempDir}, a temporary directory in Windows 10")
             self.logfield.insert(END, f"WARNING: Icon could not be found or applied to the app!")
 
         parent.update()   # Updates window at startup to be interactive and lifted
 
 
         # Define UI elements
-        ft = tkFont.Font(family="Courier", size=7)
+        ft = tkFont.Font(family="Courier", size=8)
         self.logfield["font"] = ft
         self.logfield["highlightthickness"] = 0
         self.logfield.insert(END, f"Launched successfully!\nVersion: {self.version}\n")
@@ -90,7 +96,7 @@ class Window:
 
         self.installB=tk.Button(parent)
         self.installB["text"] = "Install"
-        self.installB["command"] = self.install
+        self.installB["command"] = self.download
 
 
         self.cancelB=tk.Button(parent)
@@ -107,7 +113,7 @@ class Window:
             self.installB["fg"] = "#ffffff"
 
         elif darkdetect.isLight():
-            print("DEBUG: Light mode detected!")
+            logging.debug("DEBUG: Light mode detected!")
         else:
             self.logfield.insert(END, "Detected no system theme! Defaulting to light mode")
 
@@ -132,62 +138,70 @@ class Window:
             time.sleep(0.000001)
 
 
-
     ## Functions! ##
 
-    def install(self):
-        print("Installing function running!!")
+    def download(self):
+        logging.debug("Installing function running!!")
 
         # Bar process first
         os.chdir("C:\\Users\\leif\\Desktop\\")
-        print(f"Current working directory isss..... {os.getcwd()}!")
+        logging.debug(f"Current working directory isss... {os.getcwd()}!")
 
         self.logfield["state"] = "normal"
         self.logfield.insert(END, f"INFO: Downloading FFmpeg!\nSOURCE URL: {self.release_url}\n\n")
         self.logfield["state"] = "disabled"
+
 
         def download(root, q):
 
             response = requests.get(self.release_url, stream=True)
             dl_size = int(response.headers['Content-length'])
 
-            with open("lol", 'wb') as fp:
-                for chunk in response.iter_content(chunk_size=1024):
+            with open("lol.zip", 'wb') as fp:
+                for chunk in response.iter_content(chunk_size=100_000):
                     fp.write(chunk)
                     q.put(len(chunk) / dl_size * 100)
                     parent.event_generate('<<Progress>>')
-                    # logging.debug("Chunk loaded")
+                    logging.debug("Chunk loaded")
 
             parent.event_generate('<<Done>>')
 
 
         def updater(pb, q, event):
             self.progress['value'] += q.get()
-            # print("Updating UI bar...")
+            logging.debug("Updating UI bar...")
 
 
         q = queue.Queue()
         update_handler = partial(updater, self.progress, q)
         parent.bind('<<Progress>>', update_handler)
 
-        thread = threading.Thread(target=download, args=(parent, q), daemon=True)
+        thread = threading.Thread(target=download, args=(parent, q), daemon=False)
         thread.start()
 
 
         self.logfield["state"] = "normal"
         self.logfield.insert(END, "\nDownloading latest stable version of ffmpeg, may take at least several seconds!\n")
-        print("Downloading latest binary from link! Wait pls")
+        logging.debug("Downloading latest binary from link! Wait pls")
 
-        # MAKE IT CUSTOM DIR OPTION SOON
+        while not thread.IsAlive():
+            print("LLLOPLOOPDJWOHFIHUI")
+            self.install()
+
+
+    def install(self):
+
+        logging.info("Starting installation process: Creating directories, decompressing, writing env variables...")
+
         try:
             os.mkdir("C:\\Users\\Leif\\AppData\\Roaming\\FFmpeg\\")
             self.logfield.insert(END, "\nINFO: Making FFmpeg directory, probably your first time installing with Winpeg!\n")
         except:
-            print("FFmpeg folder is already there, by this script?")
-            self.logfield.insert(END, "\nINFO: FFmpeg folder inside default user AppData folder detected!\n")
+            logging.debug("FFmpeg folder is already there, by this script?")
+
         self.logfield["state"] = "disabled"
 
-        print("Made FFmpeg directory for unzipping...")
+        logging.debug("Made FFmpeg directory for unzipping...")
 
         try:
             with ZipFile("ffmpeg.zip", 'r') as zip: # extracts downloaded zip from ffmpegs download API for latest release
@@ -195,33 +209,32 @@ class Window:
         except zipfile.BadZipFile as e:
             self.logfield["state"] = "normal"
             self.logfield.insert(END, "\nERROR: File downloaded is not a zip file!\n")
-            print(f"File downloaded is not a zip file, something wrong in the backend?:\n{e}")
+            logging.debug(f"File downloaded is not a zip file, something wrong in the backend?:\n{e}")
         except FileNotFoundError as e:
             self.logfield["state"] = "normal"
             self.logfield.insert(END, "\nERROR: File downloaded is not a zip file!\n")
-            print(f"No file was found with FileNotFoundError:\n{e}")
+            logging.debug(f"No file was found with FileNotFoundError:\n{e}")
 
 
         self.logfield["state"] = "normal"
 
         self.logfield.insert(END, f"\nINFO: File extracted to final directory: {self.permDir}!")
-        print("\nFile extracted...\n")
+        logging.debug("\nFile extracted...\n")
 
         self.logfield["state"] = "disabled"
 
 
 
-    # cancels program and "saves"
+    # Cancel function: bar animation with a exit code of 0, console output
     def cancel(self):
         self.logfield["state"] = "normal"
-        self.bar(25)
         self.logfield.insert(END, f"\nWARNING: Installer program is closing!\n")
-        time.sleep(0.1)
+        self.bar(33)
+        time.sleep(0.2)
         self.logfield.insert(END, f"\nINFO: Programming quiting!")
         self.logfield["state"] = "disabled"
 
-
-        print("DEBUG: Quitting function is after this line being executed")
+        logging.debug("DEBUG: Quitting function is after this line being executed")
         sys.exit(0)
 
 
