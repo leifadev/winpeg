@@ -18,7 +18,7 @@ import tkinter as tk
 import tkinter.font as tkFont
 from tkinter import ttk
 from ttkthemes import ThemedTk # dark mode theme and stuff
-import webbrowser, getpass, requests, os, time, darkdetect, sys, ssl, logging
+import webbrowser, getpass, requests, os, time, darkdetect, sys, ssl, logging, wget
 from zipfile import ZipFile
 import zipfile, threading, queue
 from functools import partial
@@ -29,7 +29,7 @@ class Window:
 
         self.localPath = ""
         self.systemPath = ""
-        self.permDir = "C:\\Users\\{getpass.getuser()}\\AppData\\Roaming\\" # add \\FFmpeg folder later!
+        self.permDir = f"C:\\Users\\{getpass.getuser()}\\AppData\\Roaming\\" # add \\FFmpeg folder later!
         self.tempDir = f"C:\\Users\\{getpass.getuser()}\\AppData\\Local\\Temp\\" # ADD TEMP DIR FROM WINDOWS
         self.icon = ""
         self.version = "v0.1"
@@ -148,7 +148,7 @@ class Window:
         logging.debug(f"Current working directory isss... {os.getcwd()}!")
 
         self.logfield["state"] = "normal"
-        self.logfield.insert(END, f"INFO: Downloading FFmpeg!\nSOURCE URL: {self.release_url}\n\n")
+        self.logfield.insert(END, f"INFO: Downloading FFmpeg!\nSOURCE URL: {self.release_url}\n")
         self.logfield["state"] = "disabled"
 
 
@@ -157,7 +157,7 @@ class Window:
             response = requests.get(self.release_url, stream=True)
             dl_size = int(response.headers['Content-length'])
 
-            with open("lol.zip", 'wb') as fp:
+            with open(f"{self.tempDir}ffmpeg.zip", 'wb') as fp:
                 for chunk in response.iter_content(chunk_size=100_000):
                     fp.write(chunk)
                     q.put(len(chunk) / dl_size * 100)
@@ -172,24 +172,33 @@ class Window:
             logging.debug("Updating UI bar...")
 
 
+            # Triggers next install function after 100 done
+            if self.progress['value'] > 100:
+                time.sleep(2)
+                self.install()
+
+
         q = queue.Queue()
         update_handler = partial(updater, self.progress, q)
         parent.bind('<<Progress>>', update_handler)
 
-        thread = threading.Thread(target=download, args=(parent, q), daemon=False)
+        thread = threading.Thread(target=download, args=(parent, q), daemon=True)
         thread.start()
 
 
         self.logfield["state"] = "normal"
         self.logfield.insert(END, "\nDownloading latest stable version of ffmpeg, may take at least several seconds!\n")
         logging.debug("Downloading latest binary from link! Wait pls")
+        self.logfield["state"] = "disabled"
 
-        while not thread.IsAlive():
-            print("LLLOPLOOPDJWOHFIHUI")
-            self.install()
 
 
     def install(self):
+
+        self.logfield["state"] = "normal"
+        
+        self.logfield.delete("1.0","end")
+        self.logfield.insert(END, f"Launched successfully!\nVersion: {self.version}\n")
 
         logging.info("Starting installation process: Creating directories, decompressing, writing env variables...")
 
@@ -202,6 +211,7 @@ class Window:
         self.logfield["state"] = "disabled"
 
         logging.debug("Made FFmpeg directory for unzipping...")
+
 
         try:
             with ZipFile("ffmpeg.zip", 'r') as zip: # extracts downloaded zip from ffmpegs download API for latest release
@@ -222,7 +232,6 @@ class Window:
         logging.debug("\nFile extracted...\n")
 
         self.logfield["state"] = "disabled"
-
 
 
     # Cancel function: bar animation with a exit code of 0, console output
