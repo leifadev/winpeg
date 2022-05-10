@@ -25,21 +25,26 @@ from functools import partial
 
 
 class Window:
+    """Main window for Winpeg """
+
     def __init__(self, parent):
 
         self.localPath = ""
         self.systemPath = ""
-        self.permDir = f"C:\\Users\\{getpass.getuser()}\\AppData\\Roaming\\" # add \\FFmpeg folder later!
-        self.tempDir = f"C:\\Users\\{getpass.getuser()}\\AppData\\Local\\Temp\\" # ADD TEMP DIR FROM WINDOWS
+        self.permDir = f"C:/Users/{getpass.getuser()}/AppData/Roaming/"
+        self.tempDir = f"C:/Users/{getpass.getuser()}/AppData/Local/Temp/"
         self.icon = ""
         self.version = "v0.1"
         self.file_name = "ffmpeg.zip" # don't change this, just for extra purposes
+        self.mode = "User" # Leave User env variable for now, add feature for User and System later
 
         ssl._create_default_https_context = ssl._create_unverified_context
 
+        # Replacing / with \ for actual compatibility around previews f strings using them to avoid \\'s
+        self.permDir = self.permDir.translate({ord('/'): '\\'})
+        self.tempDir = self.tempDir.translate({ord('/'): '\\'})
+
         parent.title("Scout Windows FFmpeg Installer")
-
-
 
         width=450
         height=350
@@ -51,7 +56,7 @@ class Window:
 
 
         # Download logo icon!
-        logging.debug("Attemping logo downloading...")
+        logging.info("Attemping logo downloading...")
         url = "https://raw.githubusercontent.com/leifadev/scout/main/images/scout_logo_windows_installer.png"
 
         # Fetch latest ffmpeg build API https://ffbinaries.com/api
@@ -78,7 +83,7 @@ class Window:
             self.icon = PhotoImage(file=self.tempDir + "scout_windows_installer.png")
             parent.tk.call('wm', 'iconphoto', parent._w, self.icon)
         except Exception as e:
-            logging.debug(f"DEBUG: WARNING: Tkinter could not apply these app with PhotoImage class!\nIt's found directory should be {self.tempDir}, a temporary directory in Windows 10")
+            logging.warning(f"WARNING: Tkinter could not apply these app with PhotoImage class!\nIt's found directory should be {self.tempDir}, a temporary directory in Windows 10")
             self.logfield.insert(END, f"WARNING: Icon could not be found or applied to the app!")
 
         parent.update()   # Updates window at startup to be interactive and lifted
@@ -113,7 +118,7 @@ class Window:
             self.installB["fg"] = "#ffffff"
 
         elif darkdetect.isLight():
-            logging.debug("DEBUG: Light mode detected!")
+            logging.info("DEBUG: Light mode detected!")
         else:
             self.logfield.insert(END, "Detected no system theme! Defaulting to light mode")
 
@@ -141,14 +146,13 @@ class Window:
     ## Functions! ##
 
     def download(self):
-        logging.debug("Installing function running!!")
+        logging.info("Installing function running!!")
 
         # Bar process first
-        os.chdir("C:\\Users\\leif\\Desktop\\")
-        logging.debug(f"Current working directory isss... {os.getcwd()}!")
+        logging.info(f"Current working directory isss... {os.getcwd()}!")
 
         self.logfield["state"] = "normal"
-        self.logfield.insert(END, f"INFO: Downloading FFmpeg!\nSOURCE URL: {self.release_url}\n")
+        self.logfield.insert(END, f"\nINFO: Downloading latest version of FFmpeg!\n")
         self.logfield["state"] = "disabled"
 
 
@@ -166,7 +170,6 @@ class Window:
 
             parent.event_generate('<<Done>>')
 
-
         def updater(pb, q, event):
             self.progress['value'] += q.get()
             logging.debug("Updating UI bar...")
@@ -177,18 +180,16 @@ class Window:
                 time.sleep(2)
                 self.install()
 
-
         q = queue.Queue()
         update_handler = partial(updater, self.progress, q)
         parent.bind('<<Progress>>', update_handler)
 
-        thread = threading.Thread(target=download, args=(parent, q), daemon=True)
+        thread = threading.Thread(target=download, args=(parent, q), daemon=False)
         thread.start()
-
 
         self.logfield["state"] = "normal"
         self.logfield.insert(END, "\nDownloading latest stable version of ffmpeg, may take at least several seconds!\n")
-        logging.debug("Downloading latest binary from link! Wait pls")
+        logging.info("Downloading latest binary from link! Wait pls")
         self.logfield["state"] = "disabled"
 
 
@@ -196,50 +197,76 @@ class Window:
     def install(self):
 
         self.logfield["state"] = "normal"
-        
+
         self.logfield.delete("1.0","end")
         self.logfield.insert(END, f"Launched successfully!\nVersion: {self.version}\n")
 
-        logging.info("Starting installation process: Creating directories, decompressing, writing env variables...")
+        logging.info("Starting installation process: Creating directories, decompressing, writing env variables...\n\n")
 
         try:
-            os.mkdir("C:\\Users\\Leif\\AppData\\Roaming\\FFmpeg\\")
+            os.mkdir("C:/Users/Leif/AppData/Roaming/FFmpeg/")
             self.logfield.insert(END, "\nINFO: Making FFmpeg directory, probably your first time installing with Winpeg!\n")
         except:
-            logging.debug("FFmpeg folder is already there, by this script?")
+            logging.info("FFmpeg folder is already there, by this script?")
 
         self.logfield["state"] = "disabled"
 
-        logging.debug("Made FFmpeg directory for unzipping...")
+        logging.info("Made FFmpeg directory for unzipping...")
 
+
+        # Extract, move, sys path #
+        print("LOL:", self.tempDir, self.permDir)
 
         try:
-            with ZipFile("ffmpeg.zip", 'r') as zip: # extracts downloaded zip from ffmpegs download API for latest release
-                zip.extractall(self.permDir) # permanent spot for ffmpeg binary as said in line 27
+            with ZipFile(f"{self.tempDir}ffmpeg.zip", 'r') as zip: # extracts downloaded zip from ffmpegs download API for latest release
+                zip.extractall("C:\\Users\\Leif\\Desktop") # permanent spot for ffmpeg binary
+
+                # Messages for successful extract
+                self.logfield["state"] = "normal"
+                logging.debug("\nFile extracted...\n")
+                self.logfield.insert(END, f"\nINFO: File extracted to final directory: {self.permDir}!\n")
+                self.logfield["state"] = "disabled"
+
         except zipfile.BadZipFile as e:
             self.logfield["state"] = "normal"
             self.logfield.insert(END, "\nERROR: File downloaded is not a zip file!\n")
-            logging.debug(f"File downloaded is not a zip file, something wrong in the backend?:\n{e}")
+            logging.error(f"File downloaded is not a zip file, something wrong in the backend?:\n{e}")
         except FileNotFoundError as e:
             self.logfield["state"] = "normal"
             self.logfield.insert(END, "\nERROR: File downloaded is not a zip file!\n")
-            logging.debug(f"No file was found with FileNotFoundError:\n{e}")
+            logging.error(f"No file was found with FileNotFoundError:\n{e}")
+
+        # Delete FFmpeg.zip
+        # os.remove(f"{self.tempDir}ffmpeg.zip")
+        # logging.info(f"Deleted compressed ffmpeg binary in {self.tempDir}")
+        # self.logfield.insert(END, f"\nDeleted compressed ffmpeg binary in: {self.tempDir}\n")
 
 
-        self.logfield["state"] = "normal"
+        # Instaniate systen enviorment variable #
+        import subprocess
 
-        self.logfield.insert(END, f"\nINFO: File extracted to final directory: {self.permDir}!")
-        logging.debug("\nFile extracted...\n")
+        # Check the output of User's current env path via powershell
+        # (os.envrion requires restarts not accurate)
+        env = subprocess.check_output("powershell $Env:Path")
 
-        self.logfield["state"] = "disabled"
+        logging.info(f'Path for FFmpeg folder to be in: {self.permDir}')
+
+        # Detect if variable possibly by this script is already made, regardless still running powershell cmd
+        if f"{self.permDir}FFmpeg" in str(env):
+            self.logfield.insert(END, "\nAlready detected Winpegs ffmpeg folder! Running env var script anyways\n")
+            logging.warning(f"Already have Winpegs ffmpeg path! ({self.permDir})")
+            subprocess.run(f"powershell [Environment]::SetEnvironmentVariable('ffmpeg', '{self.permDir}FFmpeg', 'User')", shell=True)
+        else:
+            subprocess.run(f"powershell [Environment]::SetEnvironmentVariable('ffmpeg', '{self.permDir}FFmpeg', 'User')", shell=True)
+            logging.info(f"Added path: {self.permDir}")
+            self.logfield.insert(END, "\nSuccessfully added enviorment variable!\n")
 
 
-    # Cancel function: bar animation with a exit code of 0, console output
+    # Cancel function: bar animation with a exit code of 0, console output too
     def cancel(self):
         self.logfield["state"] = "normal"
         self.logfield.insert(END, f"\nWARNING: Installer program is closing!\n")
-        self.bar(33)
-        time.sleep(0.2)
+        self.bar(20)
         self.logfield.insert(END, f"\nINFO: Programming quiting!")
         self.logfield["state"] = "disabled"
 
