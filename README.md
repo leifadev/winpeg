@@ -4,9 +4,9 @@
 
 As of newer versions of this installer, choices for installed directories will be available. But for now the current user and system directories are:
 
-**User**: `"C:\\Users\\User123\\AppData\\Roaming\\FFmpeg\\`
+**User**: `C:\Users\User123\AppData\Roaming\FFmpeg`
 
-**System**: `DIR HERE`
+**System**: `C:\Programs\FFmpeg`
 
 ## Can I trust this app?
 
