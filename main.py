@@ -5,7 +5,7 @@ Author: leifadev
 This script applies too all versions of Scout v1.5.1 and under,
 to automatically install FFmpeg for Scout AND the system!
 
-This script installs FFmpeg and directs the path to: ... <<---------- FILL IN HERE
+This script installs FFmpeg and directs the path to the user's AppData Roaming directory
 This script will be compiled and shipped out directly as such.
 
 
@@ -26,7 +26,7 @@ import subprocess
 
 
 class Window:
-    """Main window for Winpeg """
+    """Main class for Winpeg """
 
     def __init__(self, parent):
 
@@ -309,9 +309,15 @@ class Window:
             logging.error(f"No file was found with FileNotFoundError:\n{e}")
 
         # Delete FFmpeg.zip
-        os.remove(f"{self.tempDir}ffmpeg.zip")
-        logging.info(f"Deleted compressed ffmpeg binary in {self.tempDir}")
-        self.logfield.insert(END, f"\nDeleted compressed ffmpeg binary in: {self.tempDir}\n")
+        try:
+            os.remove(f"{self.tempDir}ffmpeg.zip")
+            logging.info(f"Deleted compressed ffmpeg binary in {self.tempDir}")
+            self.logfield.insert(END, f"\nDeleted compressed ffmpeg binary in: {self.tempDir}\n")
+        except PermissionError as e:
+            self.logfield.insert(END, "\nCouldn't remove original download, ignoring it\n").
+            logging.error("A permission error was raised because most likely os.remove could not complete",
+            "the action due to the unzipped ffmpeg.zip file still being in",
+            f"use by another process. ZipFile? This error is excpected for now...\n\n{e}")
 
 
         # Instaniate systen enviorment variable #
@@ -389,7 +395,7 @@ class Window:
 
         self.abtWindowLink = "Contribute to the wiki!"
         self.abtWindowLink = ttk.Label(abtWindow)
-        self.abtWindowLink = Label(abtWindow, font=(self.UIAttributes.get("Font"), self.UIAttributes.get("charSize"), "underline"), text="Read the wiki for more info!", anchor=CENTER, wraplength=160, justify=CENTER)
+        self.abtWindowLink = Label(abtWindow, font=(self.UIAttributes.get("Font"), self.UIAttributes.get("charSize"), "underline"), text="Read the wiki for help and info!", anchor=CENTER, wraplength=160, justify=CENTER)
         self.abtWindowLink.place(x=50,y=170,width=200)
         self.abtWindowLink["fg"] = "#2f81ed"
         self.abtWindowLink.bind("<Button-1>", lambda e: webbrowser.open_new("https://github.com/leifadev/winpeg/wiki"))
