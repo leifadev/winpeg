@@ -222,7 +222,6 @@ class setup:
                             pass
                             # print(key, self.icon)
                             # print("---")
-
                     else:
                         pass
                 else:
